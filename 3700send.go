@@ -38,7 +38,7 @@ func main() {
 	port := splitList[1]
 	_, _ = host, port
 
-	conn, _ = net.Dial("udp", hostPort)
+	conn, _ := net.Dial("udp", hostPort)
 	data, _ := ioutil.ReadAll(os.Stdin)
 
 	retries = make(chan uint32, (len(data)/PACKET_SIZE)+1)
