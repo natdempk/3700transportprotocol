@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"../tp3700"
 )
 
 var WINDOW_SIZE uint16 = 10
@@ -41,12 +43,14 @@ func main() {
 	conn, _ := net.Dial("udp", hostPort)
 	data, _ := ioutil.ReadAll(os.Stdin)
 
+	_ = conn
+
 	retries = make(chan uint32, (len(data)/PACKET_SIZE)+1)
 	unsent = make(chan uint32, (len(data)/PACKET_SIZE)+1)
 
 	for i := 0; i < len(data); i++ {
 		start := i * PACKET_SIZE
-		end := min(len(data), start+PACKET_SIZE)
+		end := tp3700.Min(len(data), start+PACKET_SIZE)
 		dataChunks = append(dataChunks, data[start:end])
 		unsent <- uint32(i)
 	}
@@ -82,7 +86,7 @@ func sendDataChunks() {
 }
 
 func sendData(data uint32) {
-	packet := Packet{
+	packet := tp3700.Packet{
 		Seq:       data,
 		Ack:       ACK_NUMBER,
 		AdvWindow: WINDOW_SIZE,

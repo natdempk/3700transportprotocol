@@ -1,4 +1,4 @@
-package main
+package tp3700
 
 type Packet struct {
 	Seq       uint32
