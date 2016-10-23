@@ -46,7 +46,6 @@ func deleteInflight(i uint32) {
 }
 
 func main() {
-	fmt.Println("wat do")
 	hostPort := os.Args[1]
 	splitList := strings.Split(hostPort, ":")
 	host := splitList[0]
@@ -60,7 +59,6 @@ func main() {
 	}
 	conn = *connP
 	data, _ := ioutil.ReadAll(os.Stdin)
-	fmt.Println("read entire input")
 
 	retries = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
 	unsent = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
@@ -95,7 +93,7 @@ func main() {
 
 func updateAcks() {
 	for {
-		packet := tpl.ReadPacket(conn)
+		packet, _ := tpl.ReadPacket(conn)
 
 		deleteInflight(packet.Ack)
 		tpl.Log("[recv ack] %v", packet.Ack*tpl.PACKET_SIZE)

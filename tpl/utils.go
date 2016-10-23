@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-func ReadPacket(conn net.UDPConn) (packet Packet) {
+func ReadPacket(conn net.UDPConn) (packet Packet, fromAddr net.UDPAddr) {
 	buf := make([]byte, 2048)
-	_, _, err := conn.ReadFromUDP(buf)
+	_, fromAddrP, err := conn.ReadFromUDP(buf)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -19,6 +19,7 @@ func ReadPacket(conn net.UDPConn) (packet Packet) {
 	bufReader := bytes.NewReader(buf)
 	packet = Packet{}
 	_ = binary.Read(bufReader, binary.LittleEndian, &packet)
+	fromAddr = *fromAddrP
 	return
 }
 

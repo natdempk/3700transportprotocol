@@ -33,9 +33,8 @@ func main() {
 	// And also a sender socket
 
 	for !done {
-		packet := tpl.ReadPacket(conn)
-		fmt.Printf("recv packet")
-		go handleConnection(packet)
+		packet, retAddr := tpl.ReadPacket(conn)
+		go handleConnection(packet, retAddr)
 	}
 
 	// we're done
@@ -55,7 +54,7 @@ func getStatus(seq uint32) string {
 	return "ACCEPTED (in-order)"
 }
 
-func handleConnection(packet tpl.Packet) {
+func handleConnection(packet tpl.Packet, retAddr net.UDPAddr) {
 	// store data in a map
 	dataChunks[packet.Seq] = packet.Data
 
@@ -78,7 +77,9 @@ func handleConnection(packet tpl.Packet) {
 
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, &acket)
-	conn.Write(buf.Bytes())
+	retConn, _ := net.DialUDP("udp", nil, &retAddr)
+
+	retConn.Write(buf.Bytes())
 
 	// the issue with the last packet is it could be dropped during delivery
 
