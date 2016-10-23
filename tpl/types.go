@@ -9,4 +9,4 @@ type Packet struct {
 	Data      [PACKET_SIZE]byte
 }
 
-const PACKET_SIZE = 2048
+const PACKET_SIZE = 1024 * 4

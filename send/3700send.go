@@ -16,7 +16,7 @@ var WINDOW_SIZE uint16 = 10
 
 var done = false
 
-var timeOut = 100 * time.Millisecond
+var timeOut = 1000 * time.Millisecond
 var ACK_NUMBER uint32 = 0
 
 var dataChunks [][tpl.PACKET_SIZE]byte
@@ -95,12 +95,17 @@ func updateAcks() {
 
 func sendDataChunks() {
 	for !done {
-		if len(retries) > 0 {
-			data := <-retries
-			sendData(data)
-		} else if len(unsent) > 0 {
-			data := <-unsent
-			sendData(data)
+		if len(inflight) < int(WINDOW_SIZE) {
+			if len(retries) > 0 {
+				data := <-retries
+				sendData(data)
+			} else if len(unsent) > 0 {
+				data := <-unsent
+				sendData(data)
+			}
+		} else {
+
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
