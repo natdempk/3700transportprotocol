@@ -10,12 +10,16 @@ import (
 )
 
 func ReadPacket(conn net.UDPConn) (packet Packet) {
-	var buf []byte
-	_, _, _ = conn.ReadFromUDP(buf)
+	buf := make([]byte, 2048)
+	size, _, err := conn.ReadFromUDP(buf)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if size > 1 {
+		fmt.Println("not empty packet")
+	}
 
 	bufReader := bytes.NewReader(buf)
-
-	// Read into an empty struct.
 	packet = Packet{}
 	_ = binary.Read(bufReader, binary.LittleEndian, &packet)
 	return

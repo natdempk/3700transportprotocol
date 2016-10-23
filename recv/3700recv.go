@@ -13,7 +13,7 @@ import (
 
 // how do we want to handle non contiguous packets
 // and out of order delivery?
-var dataChunks = make(map[uint32][]byte)
+var dataChunks = make(map[uint32][1024]byte)
 
 var done = false
 
@@ -65,7 +65,7 @@ func handleConnection(packet tpl.Packet) {
 		// TODO: add a final shutdown flag thing
 	}
 
-	var data []byte
+	var data [1024]byte
 	// send an acknowledgement packet
 	acket := tpl.Packet{
 		Seq:       packet.Seq,
@@ -76,7 +76,7 @@ func handleConnection(packet tpl.Packet) {
 	}
 
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, acket)
+	binary.Write(buf, binary.LittleEndian, &acket)
 	conn.Write(buf.Bytes())
 
 	// the issue with the last packet is it could be dropped during delivery

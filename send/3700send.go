@@ -18,10 +18,10 @@ var WINDOW_SIZE uint16 = 10
 
 var done = false
 
-var timeOut = 5 * time.Millisecond
+var timeOut = 100 * time.Millisecond
 var ACK_NUMBER uint32 = 0
 
-var dataChunks [][]byte
+var dataChunks [][1024]byte
 
 var inflight = make(map[uint32]time.Time)
 var inflightMutex = &sync.Mutex{}
@@ -32,7 +32,6 @@ var unsent chan uint32
 var conn net.UDPConn
 
 func setInflight(i uint32) {
-	fmt.Println("wat do set")
 	inflightMutex.Lock()
 	inflight[i] = time.Now()
 	inflightMutex.Unlock()
@@ -40,7 +39,6 @@ func setInflight(i uint32) {
 }
 
 func deleteInflight(i uint32) {
-	fmt.Println("wat do del")
 	inflightMutex.Lock()
 	delete(inflight, i)
 	inflightMutex.Unlock()
@@ -55,19 +53,25 @@ func main() {
 	port := splitList[1]
 	_, _ = host, port
 
-	udpAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
-	connP, _ := net.DialUDP("udp", nil, udpAddr)
+	udpAddr, _ := net.ResolveUDPAddr("udp", hostPort)
+	connP, err := net.DialUDP("udp", nil, udpAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
 	conn = *connP
 	data, _ := ioutil.ReadAll(os.Stdin)
+	fmt.Println("read entire input")
 
 	retries = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
 	unsent = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
 
 	for i := 0; i < len(data)/tpl.PACKET_SIZE+1; i++ {
 		start := i * tpl.PACKET_SIZE
+		var s [1024]byte
 		end := tpl.Min(len(data), start+tpl.PACKET_SIZE)
-		fmt.Println(start, end, len(data))
-		s := data[start:end]
+		for start := i * tpl.PACKET_SIZE; start < end; start++ {
+			s[start] = data[start]
+		}
 		dataChunks = append(dataChunks, s)
 		unsent <- uint32(i)
 	}
@@ -102,6 +106,8 @@ func updateAcks() {
 }
 
 func sendDataChunks() {
+
+	fmt.Println("sending data")
 	for {
 		if len(retries) > 0 {
 			data := <-retries
@@ -115,6 +121,7 @@ func sendDataChunks() {
 
 func sendData(data uint32) {
 	var flags uint16 = 0
+	fmt.Println(data, len(dataChunks))
 	if data == uint32(len(dataChunks)-1) {
 		flags = 1 // we're done
 	}
@@ -129,7 +136,7 @@ func sendData(data uint32) {
 	setInflight(data)
 
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, packet)
+	binary.Write(buf, binary.LittleEndian, &packet)
 	conn.Write(buf.Bytes())
 	tpl.Log("[send data] %v (%v)", packet.Seq*tpl.PACKET_SIZE, len(packet.Data))
 }
@@ -143,6 +150,6 @@ func checkForTimeouts() {
 			}
 		}
 
-		time.Sleep(10 * time.Millisecond) // will we change this number? will it matter?
+		time.Sleep(1000 * time.Millisecond) // will we change this number? will it matter?
 	}
 }
