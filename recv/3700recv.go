@@ -18,28 +18,23 @@ var dataChunks = make(map[uint32][]byte)
 var done = false
 
 var WINDOW_SIZE uint16 = 10
+var conn net.UDPConn
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	port := rand.Intn(65535-1025) + 1025
 	udpAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
-	conn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		fmt.Println(err)
-	}
+	connP, _ := net.ListenUDP("udp", udpAddr)
+	conn = *connP
 
 	tpl.Log("[bound] %d\n", port)
 
 	//_ = ln
 
 	for !done {
-		fmt.Println("aa")
-		//conn, err := ln.Accept()
-		//if err != nil {
-		//fmt.Println(err)
-		//}
-
-		go handleConnection(conn)
+		packet := tpl.ReadPacket(conn)
+		fmt.Printf("recv packet")
+		go handleConnection(packet)
 	}
 
 	// we're done
@@ -59,8 +54,7 @@ func getStatus(seq uint32) string {
 	return "ACCEPTED (in-order)"
 }
 
-func handleConnection(conn net.Conn) {
-	packet := tpl.ReadPacket(conn)
+func handleConnection(packet tpl.Packet) {
 	// store data in a map
 	dataChunks[packet.Seq] = packet.Data
 
@@ -83,8 +77,7 @@ func handleConnection(conn net.Conn) {
 
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, acket)
-
-	fmt.Fprint(conn, buf.Bytes())
+	conn.Write(buf.Bytes())
 
 	// the issue with the last packet is it could be dropped during delivery
 

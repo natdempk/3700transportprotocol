@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-func ReadPacket(conn net.Conn) (packet Packet) {
+func ReadPacket(conn net.UDPConn) (packet Packet) {
 	var buf []byte
-	_, _ = conn.Read(buf)
+	_, _, _ = conn.ReadFromUDP(buf)
 
 	bufReader := bytes.NewReader(buf)
 

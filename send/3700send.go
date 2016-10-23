@@ -29,7 +29,7 @@ var inflightMutex = &sync.Mutex{}
 var retries chan uint32
 var unsent chan uint32
 
-var conn net.Conn
+var conn net.UDPConn
 
 func setInflight(i uint32) {
 	fmt.Println("wat do set")
@@ -55,7 +55,9 @@ func main() {
 	port := splitList[1]
 	_, _ = host, port
 
-	conn, _ = net.Dial("udp", hostPort)
+	udpAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
+	connP, _ := net.DialUDP("udp", nil, udpAddr)
+	conn = *connP
 	data, _ := ioutil.ReadAll(os.Stdin)
 
 	retries = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
@@ -128,7 +130,7 @@ func sendData(data uint32) {
 
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, packet)
-	fmt.Fprint(conn, buf.Bytes())
+	conn.Write(buf.Bytes())
 	tpl.Log("[send data] %v (%v)", packet.Seq*tpl.PACKET_SIZE, len(packet.Data))
 }
 
