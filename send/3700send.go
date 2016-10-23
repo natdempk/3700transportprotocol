@@ -22,6 +22,7 @@ var timeOut = 100 * time.Millisecond
 var ACK_NUMBER uint32 = 0
 
 var dataChunks [][1024]byte
+var dataSizes = make(map[uint32]uint16)
 
 var inflight = make(map[uint32]time.Time)
 var inflightMutex = &sync.Mutex{}
@@ -71,6 +72,7 @@ func main() {
 			s[start] = data[start]
 		}
 		dataChunks = append(dataChunks, s)
+		dataSizes[uint32(i)] = uint16(end - start)
 		unsent <- uint32(i)
 	}
 
@@ -120,8 +122,10 @@ func sendData(data uint32) {
 	if data == uint32(len(dataChunks)-1) {
 		flags = 1 // we're done
 	}
+	size := dataSizes[data]
 	packet := tpl.Packet{
 		Seq:       data,
+		Size:      size,
 		Ack:       ACK_NUMBER,
 		AdvWindow: WINDOW_SIZE,
 		Flags:     flags,

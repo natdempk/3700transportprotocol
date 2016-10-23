@@ -13,7 +13,7 @@ import (
 
 // how do we want to handle non contiguous packets
 // and out of order delivery?
-var dataChunks = make(map[uint32][1024]byte)
+var dataChunks = make(map[uint32][]byte)
 
 var done = false
 
@@ -40,6 +40,7 @@ func main() {
 	// we're done
 
 	for i := 0; i < len(dataChunks); i++ {
+		tpl.Log("%v", len(dataChunks[uint32(i)]))
 		fmt.Printf("%s", dataChunks[uint32(i)])
 	}
 
@@ -56,7 +57,7 @@ func getStatus(seq uint32) string {
 
 func handleConnection(packet tpl.Packet, retAddr net.UDPAddr) {
 	// store data in a map
-	dataChunks[packet.Seq] = packet.Data
+	dataChunks[packet.Seq] = packet.Data[:packet.Size]
 
 	tpl.Log("[recv data] %v (%v) %v", packet.Seq*tpl.PACKET_SIZE, len(packet.Data), getStatus(packet.Seq))
 
@@ -69,6 +70,7 @@ func handleConnection(packet tpl.Packet, retAddr net.UDPAddr) {
 	// send an acknowledgement packet
 	acket := tpl.Packet{
 		Seq:       packet.Seq,
+		Size:      0,
 		Ack:       packet.Seq,
 		AdvWindow: WINDOW_SIZE,
 		Flags:     2,
