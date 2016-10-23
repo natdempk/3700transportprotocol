@@ -19,7 +19,7 @@ var done = false
 var timeOut = 100 * time.Millisecond
 var ACK_NUMBER uint32 = 0
 
-var dataChunks [][1024]byte
+var dataChunks [][tpl.PACKET_SIZE]byte
 var dataSizes = make(map[uint32]uint16)
 
 var inflight = make(map[uint32]time.Time)
@@ -56,10 +56,10 @@ func main() {
 
 	for i := 0; i < len(data)/tpl.PACKET_SIZE+1; i++ {
 		start := i * tpl.PACKET_SIZE
-		var s [1024]byte
+		var s [tpl.PACKET_SIZE]byte
 		end := tpl.Min(len(data), start+tpl.PACKET_SIZE)
 		for start := i * tpl.PACKET_SIZE; start < end; start++ {
-			s[start] = data[start]
+			s[start%tpl.PACKET_SIZE] = data[start]
 		}
 		dataChunks = append(dataChunks, s)
 		dataSizes[uint32(i)] = uint16(end - start)

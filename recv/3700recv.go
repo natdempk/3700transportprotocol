@@ -32,7 +32,7 @@ func main() {
 
 	for !done {
 		packet, retAddr := tpl.ReadPacket(conn)
-		go handleConnection(packet, retAddr)
+		handleConnection(packet, retAddr)
 	}
 
 	// we're done
@@ -64,7 +64,7 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 		// TODO: add a final shutdown flag thing
 	}
 
-	var data [1024]byte
+	var data [tpl.PACKET_SIZE]byte
 	// send an acknowledgement packet
 	acket := tpl.Packet{
 		Seq:       packet.Seq,
