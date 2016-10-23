@@ -3,11 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,7 +28,7 @@ var inflightMutex = &sync.Mutex{}
 var retries chan uint32
 var unsent chan uint32
 
-var conn net.UDPConn
+var conn net.Conn
 
 func setInflight(i uint32) {
 	inflightMutex.Lock()
@@ -48,17 +46,9 @@ func deleteInflight(i uint32) {
 
 func main() {
 	hostPort := os.Args[1]
-	splitList := strings.Split(hostPort, ":")
-	host := splitList[0]
-	port := splitList[1]
-	_, _ = host, port
 
-	udpAddr, _ := net.ResolveUDPAddr("udp", hostPort)
-	connP, err := net.DialUDP("udp", nil, udpAddr)
-	if err != nil {
-		fmt.Println(err)
-	}
-	conn = *connP
+	conn, _ = net.Dial("udp", hostPort)
+
 	data, _ := ioutil.ReadAll(os.Stdin)
 
 	retries = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
@@ -94,19 +84,17 @@ func main() {
 }
 
 func updateAcks() {
-	for {
-		packet, _ := tpl.ReadPacket(conn)
-
+	for !done {
+		packet := tpl.ReadPacketC(conn)
 		deleteInflight(packet.Ack)
 		tpl.Log("[recv ack] %v", packet.Ack*tpl.PACKET_SIZE)
 		// TODO: optimizations
-
-		done = packet.Flags == 2
+		done = packet.Flags == 3
 	}
 }
 
 func sendDataChunks() {
-	for {
+	for !done {
 		if len(retries) > 0 {
 			data := <-retries
 			sendData(data)
@@ -136,12 +124,14 @@ func sendData(data uint32) {
 
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, &packet)
-	conn.Write(buf.Bytes())
-	tpl.Log("[send data] %v (%v)", packet.Seq*tpl.PACKET_SIZE, len(packet.Data))
+	if !done {
+		conn.Write(buf.Bytes())
+		tpl.Log("[send data] %v (%v)", packet.Seq*tpl.PACKET_SIZE, len(packet.Data))
+	}
 }
 
 func checkForTimeouts() {
-	for {
+	for !done {
 		for seq, sendTime := range inflight {
 			if time.Since(sendTime)*time.Millisecond >= timeOut {
 				retries <- seq

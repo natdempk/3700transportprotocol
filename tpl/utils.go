@@ -9,9 +9,19 @@ import (
 	"time"
 )
 
-func ReadPacket(conn net.UDPConn) (packet Packet, fromAddr net.UDPAddr) {
+func ReadPacketC(conn net.Conn) (packet Packet) {
 	buf := make([]byte, 2048)
-	_, fromAddrP, err := conn.ReadFromUDP(buf)
+	conn.Read(buf)
+
+	bufReader := bytes.NewReader(buf)
+	packet = Packet{}
+	_ = binary.Read(bufReader, binary.LittleEndian, &packet)
+	return
+}
+
+func ReadPacket(conn net.PacketConn) (packet Packet, fromAddr net.Addr) {
+	buf := make([]byte, 2048)
+	_, fromAddr, err := conn.ReadFrom(buf)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -19,12 +29,11 @@ func ReadPacket(conn net.UDPConn) (packet Packet, fromAddr net.UDPAddr) {
 	bufReader := bytes.NewReader(buf)
 	packet = Packet{}
 	_ = binary.Read(bufReader, binary.LittleEndian, &packet)
-	fromAddr = *fromAddrP
 	return
 }
 
 func Log(format string, a ...interface{}) {
-	timestampFormat := "%d " + format + "\n"
+	timestampFormat := "%s " + format + "\n"
 	a = append([]interface{}{Timestamp()}, a...)
 	fmt.Fprintf(os.Stderr, timestampFormat, a...)
 }
