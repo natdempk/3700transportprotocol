@@ -29,7 +29,8 @@ func main() {
 
 	tpl.Log("[bound] %d\n", port)
 
-	//_ = ln
+	// We need to set up a listener socket
+	// And also a sender socket
 
 	for !done {
 		packet := tpl.ReadPacket(conn)

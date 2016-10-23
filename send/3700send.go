@@ -106,8 +106,6 @@ func updateAcks() {
 }
 
 func sendDataChunks() {
-
-	fmt.Println("sending data")
 	for {
 		if len(retries) > 0 {
 			data := <-retries
@@ -121,7 +119,6 @@ func sendDataChunks() {
 
 func sendData(data uint32) {
 	var flags uint16 = 0
-	fmt.Println(data, len(dataChunks))
 	if data == uint32(len(dataChunks)-1) {
 		flags = 1 // we're done
 	}

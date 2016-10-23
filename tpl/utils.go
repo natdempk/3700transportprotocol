@@ -11,12 +11,9 @@ import (
 
 func ReadPacket(conn net.UDPConn) (packet Packet) {
 	buf := make([]byte, 2048)
-	size, _, err := conn.ReadFromUDP(buf)
+	_, _, err := conn.ReadFromUDP(buf)
 	if err != nil {
 		fmt.Println(err)
-	}
-	if size > 1 {
-		fmt.Println("not empty packet")
 	}
 
 	bufReader := bytes.NewReader(buf)
