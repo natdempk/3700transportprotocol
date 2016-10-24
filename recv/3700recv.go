@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 	"strconv"
 	"time"
@@ -16,8 +15,6 @@ var finalPacketId = -1
 var conn net.PacketConn
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-
 	conn, _ = net.ListenUDP("udp", nil)
 	// [::]:portNumer, the above returns a random open port
 	port, _ := strconv.Atoi(conn.LocalAddr().String()[5:])
@@ -37,7 +34,7 @@ func main() {
 	var ackDone bool = false
 	var startWaitingFinalAck = time.Now()
 	for !ackDone {
-		if time.Since(startWaitingFinalAck).Seconds() > 4 {
+		if time.Since(startWaitingFinalAck).Seconds() > 2 {
 			ackDone = true
 			break
 		}
@@ -69,7 +66,14 @@ func haveAllPackets(seq int) bool {
 }
 
 func getStatus(seq uint32) string {
-	//TODO actually do implement this correctly
+	if _, ok := dataChunks[seq]; ok {
+		return "IGNORED"
+	}
+	for i := uint32(0); i < seq; i++ {
+		if _, ok := dataChunks[seq]; !ok {
+			return "ACCEPTED (out-of-order)"
+		}
+	}
 	return "ACCEPTED (in-order)"
 }
 
