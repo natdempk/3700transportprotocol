@@ -43,7 +43,14 @@ func main() {
 		fmt.Printf("%s", dataChunks[uint32(i)])
 	}
 	var ackDone bool = false
+	var startWaitingFinalAck = time.Now()
 	for !ackDone {
+		if time.Since(startWaitingFinalAck).Seconds() > 4 {
+			ackDone = true
+			break
+		}
+
+		conn.SetDeadline(time.Now().Add(time.Second * 1))
 		packet, retAddr := tpl.ReadPacket(conn)
 		if packet.Flags != 4 {
 
@@ -88,7 +95,7 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 	if packet.Flags == 1 {
 		finalPacketId = int(packet.Seq)
 	}
-	if packet.Flags == 1 && haveAllPackets(finalPacketId) {
+	if haveAllPackets(finalPacketId) {
 		tpl.Log("recv final data packet")
 		done = true
 		flag = 3

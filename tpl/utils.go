@@ -21,10 +21,7 @@ func ReadPacketC(conn net.Conn) (packet Packet) {
 
 func ReadPacket(conn net.PacketConn) (packet Packet, fromAddr net.Addr) {
 	buf := make([]byte, PACKET_SIZE+100)
-	_, fromAddr, err := conn.ReadFrom(buf)
-	if err != nil {
-		fmt.Println(err)
-	}
+	_, fromAddr, _ = conn.ReadFrom(buf)
 
 	bufReader := bytes.NewReader(buf)
 	packet = Packet{}
