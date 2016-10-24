@@ -12,28 +12,24 @@ import (
 )
 
 var done = false
-
-var timeOut = 1 * time.Second
-
 var dataChunks [][]byte
-
-var inflight = make(map[uint32]time.Time)
-var inflightMutex = &sync.Mutex{}
-
 var retries chan uint32
 var unsent chan uint32
-
 var conn net.Conn
-var rtt time.Duration = timeOut
+
+var initRtt = 1 * time.Second
+var rtt time.Duration = initRtt
+
+// Used to manage a final timeout and signal total failure
+var recvOrSentPacket = time.Now()
+
 var c = 0.4
-
 var binv float64 = 2
-
 var cwndMax int = 24
 
 var lastWindowRed = time.Now()
-var recvOrSentPacket = time.Now()
 
+// consider moving this to another file
 func getCwnd() (cwnd int) {
 	t := float64(time.Since(lastWindowRed).Seconds())
 
@@ -41,6 +37,9 @@ func getCwnd() (cwnd int) {
 	cwnd = int(math.Floor(math.Pow(3, t-cube)*c + float64(cwndMax)))
 	return
 }
+
+var inflight = make(map[uint32]time.Time)
+var inflightMutex = &sync.Mutex{}
 
 func setInflight(i uint32) {
 	inflightMutex.Lock()
@@ -109,7 +108,7 @@ func updateAcks() {
 		if val, ok := inflight[packet.Seq]; ok {
 
 			alpha := 0.875
-			if rtt == timeOut {
+			if rtt == initRtt {
 				rtt = time.Since(val)
 			} else {
 				rtt = time.Duration(alpha*float64(rtt.Nanoseconds()) + (1-alpha)*float64(time.Since(val).Nanoseconds()))
@@ -140,11 +139,10 @@ func sendDataChunks() {
 }
 
 func sendData(data uint32) {
-
 	recvOrSentPacket = time.Now()
 	var flags uint32 = 0
 	if data == uint32(len(dataChunks)-1) {
-		flags = 1 // we're done
+		flags = 1 // Last data Packet
 	}
 	packet := tpl.Packet{
 		Seq:   data,
@@ -171,6 +169,6 @@ func checkForTimeouts() {
 			}
 		}
 
-		time.Sleep(1000 * time.Millisecond) // will we change this number? will it matter?
+		time.Sleep(1000 * time.Millisecond)
 	}
 }

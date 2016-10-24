@@ -10,35 +10,30 @@ import (
 	"../tpl"
 )
 
-// how do we want to handle non contiguous packets
-// and out of order delivery?
 var dataChunks = make(map[uint32][]byte)
-
 var done = false
-
 var finalPacketId = -1
 var conn net.PacketConn
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
+
 	conn, _ = net.ListenUDP("udp", nil)
+	// [::]:portNumer, the above returns a random open port
 	port, _ := strconv.Atoi(conn.LocalAddr().String()[5:])
 	defer conn.Close()
 	tpl.Log("[bound] %d\n", port)
-
-	// We need to set up a listener socket
-	// And also a sender socket
 
 	for !done {
 		packet, retAddr := tpl.ReadPacket(conn)
 		handleConnection(packet, retAddr)
 	}
 
-	// we're done
-
 	for i := 0; i < len(dataChunks); i++ {
 		fmt.Printf("%s", dataChunks[uint32(i)])
 	}
+
+	// Wait up to 4 seconds to recieve a final ackDone
 	var ackDone bool = false
 	var startWaitingFinalAck = time.Now()
 	for !ackDone {
@@ -49,6 +44,7 @@ func main() {
 
 		conn.SetDeadline(time.Now().Add(time.Second * 1))
 		packet, retAddr := tpl.ReadPacket(conn)
+		// If it's not final ack, resend we're done
 		if packet.Flags != 4 {
 
 			var data []byte
@@ -57,11 +53,8 @@ func main() {
 				Flags: 3,
 				Data:  data,
 			}
-
 			buf := tpl.WriteBytes(teardown)
-
 			conn.WriteTo(buf.Bytes(), retAddr)
-
 		} else {
 			ackDone = true
 		}
@@ -76,11 +69,11 @@ func haveAllPackets(seq int) bool {
 }
 
 func getStatus(seq uint32) string {
+	//TODO actually do implement this correctly
 	return "ACCEPTED (in-order)"
 }
 
 func handleConnection(packet tpl.Packet, retAddr net.Addr) {
-	// store data in a map
 	dataChunks[packet.Seq] = packet.Data
 
 	tpl.Log("[recv data] %v (%v) %v", packet.Seq*tpl.PACKET_SIZE, len(packet.Data), getStatus(packet.Seq))
@@ -92,11 +85,9 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 		tpl.Log("recv final data packet")
 		done = true
 		flag = 3
-		// TODO: add a final shutdown flag thing
 	}
 
 	var data []byte
-	// send an acknowledgement packet
 	acket := tpl.Packet{
 		Seq:   packet.Seq,
 		Flags: flag,
@@ -104,10 +95,5 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 	}
 
 	buf := tpl.WriteBytes(acket)
-
 	conn.WriteTo(buf.Bytes(), retAddr)
-
-	// the issue with the last packet is it could be dropped during delivery
-
-	// so we might actually need a 3 way handshake or something around closing out
 }
