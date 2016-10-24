@@ -4,28 +4,64 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"time"
 )
 
+func WriteBytes(packet Packet) (buff bytes.Buffer) {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, packet.Seq)
+	binary.Write(buf, binary.LittleEndian, packet.Size)
+	binary.Write(buf, binary.LittleEndian, packet.Ack)
+	binary.Write(buf, binary.LittleEndian, packet.AdvWindow)
+	binary.Write(buf, binary.LittleEndian, packet.Flags)
+
+	for i := 0; i < len(packet.Data); i++ {
+		binary.Write(buf, binary.LittleEndian, packet.Data[i])
+	}
+	buff = *buf
+	return
+}
+
+func ReadBytes(buff *bytes.Reader) (packet Packet) {
+	packet = Packet{}
+	binary.Read(buff, binary.LittleEndian, &packet.Seq)
+	binary.Read(buff, binary.LittleEndian, &packet.Size)
+	binary.Read(buff, binary.LittleEndian, &packet.Ack)
+	binary.Read(buff, binary.LittleEndian, &packet.AdvWindow)
+	binary.Read(buff, binary.LittleEndian, &packet.Flags)
+
+	var data []byte
+	for {
+		newByte, err := buff.ReadByte()
+		if err == io.EOF {
+			packet.Data = data
+			return
+		}
+		data = append(data, newByte)
+	}
+	return
+
+}
+
 func ReadPacketC(conn net.Conn) (packet Packet) {
 	buf := make([]byte, PACKET_SIZE+100)
-	conn.Read(buf)
+	size, _ := conn.Read(buf)
 
-	bufReader := bytes.NewReader(buf)
-	packet = Packet{}
-	_ = binary.Read(bufReader, binary.LittleEndian, &packet)
+	bufReader := bytes.NewReader(buf[:size])
+	packet = ReadBytes(bufReader)
 	return
 }
 
 func ReadPacket(conn net.PacketConn) (packet Packet, fromAddr net.Addr) {
 	buf := make([]byte, PACKET_SIZE+100)
-	_, fromAddr, _ = conn.ReadFrom(buf)
+	size, fromAddrp, _ := conn.ReadFrom(buf)
 
-	bufReader := bytes.NewReader(buf)
-	packet = Packet{}
-	_ = binary.Read(bufReader, binary.LittleEndian, &packet)
+	bufReader := bytes.NewReader(buf[:size])
+	packet = ReadBytes(bufReader)
+	fromAddr = fromAddrp
 	return
 }
 

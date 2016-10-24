@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"math/rand"
 	"net"
@@ -19,7 +17,7 @@ var dataChunks = make(map[uint32][]byte)
 var done = false
 
 var finalPacketId = -1
-var WINDOW_SIZE uint16 = 10
+var WINDOW_SIZE uint32 = 10
 var conn net.PacketConn
 
 func main() {
@@ -54,7 +52,7 @@ func main() {
 		packet, retAddr := tpl.ReadPacket(conn)
 		if packet.Flags != 4 {
 
-			var data [tpl.PACKET_SIZE]byte
+			var data []byte
 			teardown := tpl.Packet{
 				Seq:       packet.Seq,
 				Size:      0,
@@ -64,8 +62,7 @@ func main() {
 				Data:      data,
 			}
 
-			buf := new(bytes.Buffer)
-			binary.Write(buf, binary.LittleEndian, &teardown)
+			buf := tpl.WriteBytes(teardown)
 
 			conn.WriteTo(buf.Bytes(), retAddr)
 
@@ -88,10 +85,10 @@ func getStatus(seq uint32) string {
 
 func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 	// store data in a map
-	dataChunks[packet.Seq] = packet.Data[:packet.Size]
+	dataChunks[packet.Seq] = packet.Data
 
 	tpl.Log("[recv data] %v (%v) %v", packet.Seq*tpl.PACKET_SIZE, len(packet.Data), getStatus(packet.Seq))
-	var flag uint16 = 2
+	var flag uint32 = 2
 	if packet.Flags == 1 {
 		finalPacketId = int(packet.Seq)
 	}
@@ -102,7 +99,7 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 		// TODO: add a final shutdown flag thing
 	}
 
-	var data [tpl.PACKET_SIZE]byte
+	var data []byte
 	// send an acknowledgement packet
 	acket := tpl.Packet{
 		Seq:       packet.Seq,
@@ -113,8 +110,7 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 		Data:      data,
 	}
 
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, &acket)
+	buf := tpl.WriteBytes(acket)
 
 	conn.WriteTo(buf.Bytes(), retAddr)
 

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"io/ioutil"
 	"math"
 	"net"
@@ -13,15 +11,15 @@ import (
 	"../tpl"
 )
 
-var WINDOW_SIZE uint16 = 24
+var WINDOW_SIZE uint32 = 24
 
 var done = false
 
 var timeOut = 50000000 * time.Nanosecond
 var ACK_NUMBER uint32 = 0
 
-var dataChunks [][tpl.PACKET_SIZE]byte
-var dataSizes = make(map[uint32]uint16)
+var dataChunks [][]byte
+var dataSizes = make(map[uint32]uint32)
 
 var inflight = make(map[uint32]time.Time)
 var inflightMutex = &sync.Mutex{}
@@ -75,13 +73,9 @@ func main() {
 
 	for i := 0; i < len(data)/tpl.PACKET_SIZE+1; i++ {
 		start := i * tpl.PACKET_SIZE
-		var s [tpl.PACKET_SIZE]byte
 		end := tpl.Min(len(data), start+tpl.PACKET_SIZE)
-		for start := i * tpl.PACKET_SIZE; start < end; start++ {
-			s[start%tpl.PACKET_SIZE] = data[start]
-		}
-		dataChunks = append(dataChunks, s)
-		dataSizes[uint32(i)] = uint16(end - start)
+		dataChunks = append(dataChunks, data[start:end])
+		dataSizes[uint32(i)] = uint32(end - start)
 		unsent <- uint32(i)
 	}
 
@@ -100,7 +94,7 @@ func main() {
 	}
 
 	tpl.Log("finished")
-	var emptyData [tpl.PACKET_SIZE]byte
+	var emptyData []byte
 	packet := tpl.Packet{
 		Seq:       1,
 		Size:      0,
@@ -110,8 +104,7 @@ func main() {
 		Data:      emptyData,
 	}
 
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, &packet)
+	buf := tpl.WriteBytes(packet)
 	conn.Write(buf.Bytes())
 
 	tpl.Log("[completed]")
@@ -130,9 +123,6 @@ func updateAcks() {
 		}
 		tpl.Log("[recv ack] %v", packet.Ack*tpl.PACKET_SIZE)
 		// TODO: optimizations
-		if packet.Ack == 0 {
-			tpl.Log("%v", packet)
-		}
 		done = done || packet.Flags == 3
 	}
 	tpl.Log("done with acks")
@@ -158,7 +148,7 @@ func sendDataChunks() {
 func sendData(data uint32) {
 
 	recvOrSentPacket = time.Now()
-	var flags uint16 = 0
+	var flags uint32 = 0
 	if data == uint32(len(dataChunks)-1) {
 		flags = 1 // we're done
 	}
@@ -173,9 +163,7 @@ func sendData(data uint32) {
 	}
 
 	setInflight(data)
-
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, &packet)
+	buf := tpl.WriteBytes(packet)
 	if !done {
 		conn.Write(buf.Bytes())
 		tpl.Log("[send data] %v (%v)", packet.Seq*tpl.PACKET_SIZE, len(packet.Data))
