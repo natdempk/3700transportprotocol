@@ -1,0 +1,28 @@
+3700transportprotocol
+CS3700 - Project 3
+Sean Andrews and Nathaniel Dempkowski, Team project3
+
+High-level Approach
+===================
+
+We define out packets to have a sequence number and flags to indicate done sending, acknowledge, final teardown, and an ack for the final teardown. This adds 5 bytes of overhead.
+
+Sender
+======
+
+The sender chunks data into our packet size, which is 32KB. We chose to have big packets to limit overhead. We then send an initial number of packets such that we saturate the Linux UDP write buffer on the cs3600tcp machine. We use a cubic scaling strategy for congestion control and measure RTT using a running average. We resend packets when a RTT has elapsed and we haven't seen an ACK for that packet. We track the number of in-flight packets and use that to determine when to send more. We use channels to manage packet numbers that need to be sent or retried, as they allow for a nice abstraction of functionality.
+
+Receiver
+========
+
+The receiver listens on a random UDP port. It simply just accepts and acknowledges data without worrying about any of the details. It keeps tracks of received data, ACKing packet-by-packet. We have a totally arbitrary window due to the nature of the assignment.
+
+Challenges Faced
+================
+
+One of the largest challenges was setting up and listening to UDP packets using Go. It was not immediately obvious how we should do this, as the UDP Listen call is different from the standard Conn interface. We also had to manually serialize our packets to support variable packet length. We were initially hoping Go would do this for us. Our final ACK strategy is almost a 3-way handshake. We send a marked final packet, acknowledge that, and then acknowledge the final packet acknowledgement. We also have a timeout on waiting for the final packet acknowledgement. If the timeout is reached, we just teardown the connection as the other side also has a timeout. 
+
+Testing
+=======
+
+We used the provided run and test scripts to verify that our protocol worked and met all of the test criteria. We also used print statements for debugging and wrote a few simple functions to test that some of the serialization was working correctly.
