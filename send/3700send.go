@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"os"
 	"sync"
@@ -12,11 +14,11 @@ import (
 	"../tpl"
 )
 
-var WINDOW_SIZE uint16 = 10
+var WINDOW_SIZE uint16 = 24
 
 var done = false
 
-var timeOut = 1000 * time.Millisecond
+var timeOut = 50000000 * time.Nanosecond
 var ACK_NUMBER uint32 = 0
 
 var dataChunks [][tpl.PACKET_SIZE]byte
@@ -29,6 +31,22 @@ var retries chan uint32
 var unsent chan uint32
 
 var conn net.Conn
+var rtt time.Duration = timeOut
+var c = 0.4
+
+var binv float64 = 2
+
+var cwndMax int = int(WINDOW_SIZE)
+
+var lastWindowRed = time.Now()
+
+func getCwnd() (cwnd int) {
+	t := float64(time.Since(lastWindowRed).Seconds())
+
+	cube := math.Cbrt(float64(cwndMax / 2))
+	cwnd = int(math.Floor(math.Pow(3, t-cube)*c + float64(cwndMax)))
+	return
+}
 
 func setInflight(i uint32) {
 	inflightMutex.Lock()
@@ -48,6 +66,7 @@ func main() {
 	hostPort := os.Args[1]
 
 	conn, _ = net.Dial("udp", hostPort)
+	defer conn.Close()
 
 	data, _ := ioutil.ReadAll(os.Stdin)
 
@@ -80,31 +99,51 @@ func main() {
 		time.Sleep(10 * time.Millisecond)
 	}
 
+	fmt.Println("at the end now")
+	var emptyData [tpl.PACKET_SIZE]byte
+	packet := tpl.Packet{
+		Seq:       1,
+		Size:      0,
+		Ack:       0,
+		AdvWindow: WINDOW_SIZE,
+		Flags:     4,
+		Data:      emptyData,
+	}
+
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, &packet)
+	conn.Write(buf.Bytes())
+
 	tpl.Log("[completed]")
 }
 
 func updateAcks() {
 	for !done {
 		packet := tpl.ReadPacketC(conn)
+		alpha := 0.875
+
+		rtt = time.Duration(alpha*float64(rtt.Nanoseconds()) + (1-alpha)*float64(time.Since(inflight[packet.Ack]).Nanoseconds()))
+		tpl.Log("%v", rtt*time.Nanosecond)
 		deleteInflight(packet.Ack)
 		tpl.Log("[recv ack] %v", packet.Ack*tpl.PACKET_SIZE)
 		// TODO: optimizations
-		done = packet.Flags == 3
+		done = done && packet.Flags == 3
 	}
 }
 
 func sendDataChunks() {
 	for !done {
-		if len(inflight) < int(WINDOW_SIZE) {
+		if len(inflight) < getCwnd() {
 			if len(retries) > 0 {
+				fmt.Println("retry")
 				data := <-retries
 				sendData(data)
 			} else if len(unsent) > 0 {
+				fmt.Println("unsent")
 				data := <-unsent
 				sendData(data)
 			}
 		} else {
-
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
@@ -138,8 +177,12 @@ func sendData(data uint32) {
 func checkForTimeouts() {
 	for !done {
 		for seq, sendTime := range inflight {
-			if time.Since(sendTime)*time.Millisecond >= timeOut {
+			if time.Since(sendTime) >= rtt {
+				cwndMax = getCwnd()
+				lastWindowRed = time.Now()
+				tpl.Log("dropped packet")
 				retries <- seq
+				WINDOW_SIZE = 1
 				deleteInflight(seq)
 			}
 		}

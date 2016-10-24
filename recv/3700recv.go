@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strconv"
 	"time"
 
 	"../tpl"
@@ -17,14 +18,15 @@ var dataChunks = make(map[uint32][]byte)
 
 var done = false
 
+var finalPacketId = -1
 var WINDOW_SIZE uint16 = 10
 var conn net.PacketConn
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	port := rand.Intn(65535-1025) + 1025
-	conn, _ = net.ListenPacket("udp", fmt.Sprintf(":%d", port))
-
+	conn, _ = net.ListenUDP("udp", nil)
+	port, _ := strconv.Atoi(conn.LocalAddr().String()[5:])
+	defer conn.Close()
 	tpl.Log("[bound] %d\n", port)
 
 	// We need to set up a listener socket
@@ -40,12 +42,37 @@ func main() {
 	for i := 0; i < len(dataChunks); i++ {
 		fmt.Printf("%s", dataChunks[uint32(i)])
 	}
+	var ackDone bool = false
+	for !ackDone {
+		packet, retAddr := tpl.ReadPacket(conn)
+		if packet.Flags != 4 {
+
+			var data [tpl.PACKET_SIZE]byte
+			teardown := tpl.Packet{
+				Seq:       packet.Seq,
+				Size:      0,
+				Ack:       packet.Seq,
+				AdvWindow: WINDOW_SIZE,
+				Flags:     3,
+				Data:      data,
+			}
+
+			buf := new(bytes.Buffer)
+			binary.Write(buf, binary.LittleEndian, &teardown)
+
+			conn.WriteTo(buf.Bytes(), retAddr)
+
+		} else {
+			ackDone = true
+		}
+	}
 
 	tpl.Log("[completed]")
+	return
 }
 
-func haveAllPackets(seq uint32) bool {
-	return len(dataChunks) == int(seq)+1
+func haveAllPackets(seq int) bool {
+	return len(dataChunks) == seq+1
 }
 
 func getStatus(seq uint32) string {
@@ -58,7 +85,11 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 
 	tpl.Log("[recv data] %v (%v) %v", packet.Seq*tpl.PACKET_SIZE, len(packet.Data), getStatus(packet.Seq))
 	var flag uint16 = 2
-	if packet.Flags == 1 && haveAllPackets(packet.Seq) {
+	if packet.Flags == 1 {
+		finalPacketId = int(packet.Seq)
+	}
+	if packet.Flags == 1 && haveAllPackets(finalPacketId) {
+		tpl.Log("recv final data packet")
 		done = true
 		flag = 3
 		// TODO: add a final shutdown flag thing
