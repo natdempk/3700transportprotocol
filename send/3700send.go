@@ -15,7 +15,7 @@ var WINDOW_SIZE uint32 = 24
 
 var done = false
 
-var timeOut = 50000000 * time.Nanosecond
+var timeOut = 1 * time.Second
 var ACK_NUMBER uint32 = 0
 
 var dataChunks [][]byte
