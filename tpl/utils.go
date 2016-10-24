@@ -13,9 +13,6 @@ import (
 func WriteBytes(packet Packet) (buff bytes.Buffer) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, packet.Seq)
-	binary.Write(buf, binary.LittleEndian, packet.Size)
-	binary.Write(buf, binary.LittleEndian, packet.Ack)
-	binary.Write(buf, binary.LittleEndian, packet.AdvWindow)
 	binary.Write(buf, binary.LittleEndian, packet.Flags)
 
 	for i := 0; i < len(packet.Data); i++ {
@@ -28,9 +25,6 @@ func WriteBytes(packet Packet) (buff bytes.Buffer) {
 func ReadBytes(buff *bytes.Reader) (packet Packet) {
 	packet = Packet{}
 	binary.Read(buff, binary.LittleEndian, &packet.Seq)
-	binary.Read(buff, binary.LittleEndian, &packet.Size)
-	binary.Read(buff, binary.LittleEndian, &packet.Ack)
-	binary.Read(buff, binary.LittleEndian, &packet.AdvWindow)
 	binary.Read(buff, binary.LittleEndian, &packet.Flags)
 
 	var data []byte

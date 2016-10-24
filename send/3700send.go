@@ -11,15 +11,11 @@ import (
 	"../tpl"
 )
 
-var WINDOW_SIZE uint32 = 24
-
 var done = false
 
 var timeOut = 1 * time.Second
-var ACK_NUMBER uint32 = 0
 
 var dataChunks [][]byte
-var dataSizes = make(map[uint32]uint32)
 
 var inflight = make(map[uint32]time.Time)
 var inflightMutex = &sync.Mutex{}
@@ -33,7 +29,7 @@ var c = 0.4
 
 var binv float64 = 2
 
-var cwndMax int = int(WINDOW_SIZE)
+var cwndMax int = 24
 
 var lastWindowRed = time.Now()
 var recvOrSentPacket = time.Now()
@@ -75,7 +71,6 @@ func main() {
 		start := i * tpl.PACKET_SIZE
 		end := tpl.Min(len(data), start+tpl.PACKET_SIZE)
 		dataChunks = append(dataChunks, data[start:end])
-		dataSizes[uint32(i)] = uint32(end - start)
 		unsent <- uint32(i)
 	}
 
@@ -96,12 +91,9 @@ func main() {
 	tpl.Log("finished")
 	var emptyData []byte
 	packet := tpl.Packet{
-		Seq:       1,
-		Size:      0,
-		Ack:       0,
-		AdvWindow: WINDOW_SIZE,
-		Flags:     4,
-		Data:      emptyData,
+		Seq:   1,
+		Flags: 4,
+		Data:  emptyData,
 	}
 
 	buf := tpl.WriteBytes(packet)
@@ -114,15 +106,17 @@ func updateAcks() {
 	for !done {
 		packet := tpl.ReadPacketC(conn)
 		recvOrSentPacket = time.Now()
-		if val, ok := inflight[packet.Ack]; ok {
+		if val, ok := inflight[packet.Seq]; ok {
 
 			alpha := 0.875
-
-			rtt = time.Duration(alpha*float64(rtt.Nanoseconds()) + (1-alpha)*float64(time.Since(val).Nanoseconds()))
-			deleteInflight(packet.Ack)
+			if rtt == timeOut {
+				rtt = time.Since(val)
+			} else {
+				rtt = time.Duration(alpha*float64(rtt.Nanoseconds()) + (1-alpha)*float64(time.Since(val).Nanoseconds()))
+			}
+			deleteInflight(packet.Seq)
 		}
-		tpl.Log("[recv ack] %v", packet.Ack*tpl.PACKET_SIZE)
-		// TODO: optimizations
+		tpl.Log("[recv ack] %v", packet.Seq*tpl.PACKET_SIZE)
 		done = done || packet.Flags == 3
 	}
 	tpl.Log("done with acks")
@@ -152,14 +146,10 @@ func sendData(data uint32) {
 	if data == uint32(len(dataChunks)-1) {
 		flags = 1 // we're done
 	}
-	size := dataSizes[data]
 	packet := tpl.Packet{
-		Seq:       data,
-		Size:      size,
-		Ack:       ACK_NUMBER,
-		AdvWindow: WINDOW_SIZE,
-		Flags:     flags,
-		Data:      dataChunks[data],
+		Seq:   data,
+		Flags: flags,
+		Data:  dataChunks[data],
 	}
 
 	setInflight(data)
@@ -177,7 +167,6 @@ func checkForTimeouts() {
 				cwndMax = getCwnd()
 				lastWindowRed = time.Now()
 				retries <- seq
-				WINDOW_SIZE = 1
 				deleteInflight(seq)
 			}
 		}

@@ -17,7 +17,6 @@ var dataChunks = make(map[uint32][]byte)
 var done = false
 
 var finalPacketId = -1
-var WINDOW_SIZE uint32 = 10
 var conn net.PacketConn
 
 func main() {
@@ -54,12 +53,9 @@ func main() {
 
 			var data []byte
 			teardown := tpl.Packet{
-				Seq:       packet.Seq,
-				Size:      0,
-				Ack:       packet.Seq,
-				AdvWindow: WINDOW_SIZE,
-				Flags:     3,
-				Data:      data,
+				Seq:   packet.Seq,
+				Flags: 3,
+				Data:  data,
 			}
 
 			buf := tpl.WriteBytes(teardown)
@@ -102,12 +98,9 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 	var data []byte
 	// send an acknowledgement packet
 	acket := tpl.Packet{
-		Seq:       packet.Seq,
-		Size:      0,
-		Ack:       packet.Seq,
-		AdvWindow: WINDOW_SIZE,
-		Flags:     flag,
-		Data:      data,
+		Seq:   packet.Seq,
+		Flags: flag,
+		Data:  data,
 	}
 
 	buf := tpl.WriteBytes(acket)
