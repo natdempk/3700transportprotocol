@@ -81,7 +81,7 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 	dataChunks[packet.Seq] = packet.Data
 
 	tpl.Log("[recv data] %v (%v) %v", packet.Seq*tpl.PACKET_SIZE, len(packet.Data), getStatus(packet.Seq))
-	var flag uint32 = 2
+	var flag uint8 = 2
 	if packet.Flags == 1 {
 		finalPacketId = int(packet.Seq)
 	}

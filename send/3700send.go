@@ -25,7 +25,7 @@ var recvOrSentPacket = time.Now()
 
 var c = 0.4
 var binv float64 = 2
-var cwndMax int = 24
+var cwndMax int = 15
 
 var lastWindowRed = time.Now()
 
@@ -97,6 +97,8 @@ func main() {
 
 	buf := tpl.WriteBytes(packet)
 	conn.Write(buf.Bytes())
+	// fingers crossed
+	conn.Write(buf.Bytes())
 
 	tpl.Log("[completed]")
 }
@@ -140,7 +142,7 @@ func sendDataChunks() {
 
 func sendData(data uint32) {
 	recvOrSentPacket = time.Now()
-	var flags uint32 = 0
+	var flags uint8 = 0
 	if data == uint32(len(dataChunks)-1) {
 		flags = 1 // Last data Packet
 	}
