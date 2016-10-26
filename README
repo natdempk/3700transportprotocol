@@ -5,24 +5,26 @@ Sean Andrews and Nathaniel Dempkowski, Team project3
 High-level Approach
 ===================
 
-We define out packets to have a sequence number and flags to indicate done sending, acknowledge, final teardown, and an ack for the final teardown. This adds 5 bytes of overhead.
+First we have to declare how we model our packets to meet the requirements of the assignment. We define our packet headers very simply. They have a sequence number and flags to indicate done sending, acknowledge, final teardown, and an ack for the final teardown. This adds 5 bytes of overhead. We rely on UDP to handle the size of the data within the packets correctly. The sequence number is also used as an ACK number when sending from the receiver to the sender.
+
+Another important part of our protocol is data compression. As the data we read in is in a standard format (ascii hexadecimal values a-f, 0-9) output by `xxd -p` we really only care about 16 values instead of the 255 we would normally have to deal with when using ascii. This means that we can take each byte we read in and use 4 bits to represent it, allowing us to send data thats around half the size of the input we read in. This is probably the most efficient encoding scheme we could use, and only works because of the way input is given to us for this assignment. If we had to support arbitrary input, we wouldn't be able to compress random data and would have to rely on other compression methods like gzip. We then have to recreate the `xxd -p` output format on the receiving side, but that is simple enough as it just means we just convert every byte back to two hex characters and add newlines every 60 characters.
 
 Sender
 ======
 
-The sender chunks data into our packet size, which is 32KB. We chose to have big packets to limit overhead. We then send an initial number of packets such that we saturate the Linux UDP write buffer on the cs3600tcp machine. We use a cubic scaling strategy for congestion control and measure RTT using a running average. We resend packets when a RTT has elapsed and we haven't seen an ACK for that packet. We track the number of in-flight packets and use that to determine when to send more. We use channels to manage packet numbers that need to be sent or retried, as they allow for a nice abstraction of functionality.
+The sender chunks data into our packet size, which is 32KB. We chose to have big packets to limit overhead. We then send an initial number of packets such that we saturate the Linux UDP write buffer on the cs3600tcp machine. We use a cubic scaling strategy for congestion control and measure RTT using a running average. We resend packets when a RTT has elapsed and we haven't seen an ACK for that packet. We also do a sort of fast retransmit, but only wait for 2 packets with high ACKs rather than 3 to arrive. We track the number of in-flight packets and use that to determine when to send more. We use channels to manage packet numbers that need to be sent or retried, as they allow for a nice abstraction of functionality that another goroutine for sending can use.
 
 Receiver
 ========
 
-The receiver listens on a random UDP port. It simply just accepts and acknowledges data without worrying about any of the details. It keeps tracks of received data, ACKing packet-by-packet. We have a totally arbitrary window due to the nature of the assignment.
+The receiver listens on a random UDP port. It simply just accepts and acknowledges data without worrying about any of the details. It keeps tracks of received data, ACKing packet-by-packet. We have a totally arbitrary window due to the nature of the assignment. Once we have received all the data, we send a packet to close out the connection and shutdown. We shutdown as soon as possible, performing a basic handshake, but not worrying about retrying things too much. If the teardown handshake packets are lost, we rely on sender timeouts and socket error handling to know when the connection is closed. This again would probably be questionable for real world scenarios, but works for the nature of errors we need to handle in this assignment.
 
 Challenges Faced
 ================
 
-One of the largest challenges was setting up and listening to UDP packets using Go. It was not immediately obvious how we should do this, as the UDP Listen call is different from the standard Conn interface. We also had to manually serialize our packets to support variable packet length. We were initially hoping Go would do this for us. Our final ACK strategy is almost a 3-way handshake. We send a marked final packet, acknowledge that, and then acknowledge the final packet acknowledgement. We also have a timeout on waiting for the final packet acknowledgement. If the timeout is reached, we just teardown the connection as the other side also has a timeout. 
+One of the largest challenges was setting up and listening to UDP packets using Go. It was not immediately obvious how we should do this, as the UDP Listen call is different from the standard Conn interface. We also had to manually serialize our packets to support variable packet length. We were initially hoping Go would do this for us. Our final ACK strategy is almost a 3-way handshake. We send a marked final packet, acknowledge that, and then acknowledge the final packet acknowledgement. We also have a timeout on waiting for the final packet acknowledgement. If the timeout is reached, we just teardown the connection as the other side also has a timeout. Additionally, we use error handling to assume everything has finished being sent. If the connection was closed we assume that the receiver closed it as they had seen all the data.
 
 Testing
 =======
 
-We used the provided run and test scripts to verify that our protocol worked and met all of the test criteria. We also used print statements for debugging and wrote a few simple functions to test that some of the serialization was working correctly.
+We used the provided run and test scripts to verify that our protocol worked and met all of the test criteria. We also used print statements for debugging and wrote a few simple functions to test that some of the serialization was working correctly. We also wrote a test function to ensure that our "compression" scheme was working reliably.
