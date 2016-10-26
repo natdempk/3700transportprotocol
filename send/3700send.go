@@ -78,7 +78,6 @@ func main() {
 
 	data, _ := ioutil.ReadAll(os.Stdin)
 	data, ignoreLast = tpl.CompressBytes(data)
-	tpl.Log("%v", ignoreLast)
 
 	retries = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
 	unsent = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
@@ -104,7 +103,6 @@ func main() {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	tpl.Log("finished")
 	var emptyData []byte
 	packet := tpl.Packet{
 		Seq:   1,
@@ -151,12 +149,9 @@ func updateAcks() {
 
 			deleteInflight(packet.Seq)
 		}
-		//tpl.Log("[recv ack] %v", packet.Seq*tpl.PACKET_SIZE)
 		tpl.Log("[recv ack] %v %v", packet.Seq*tpl.PACKET_SIZE, packet.Flags)
 		done = done || packet.Flags == 3
-		tpl.Log("done: %v", done)
 	}
-	tpl.Log("done with acks")
 }
 
 func sendDataChunks() {

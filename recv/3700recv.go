@@ -31,7 +31,6 @@ func main() {
 	for i := 0; i < len(dataChunks); i++ {
 		output = append(output, dataChunks[uint32(i)]...)
 	}
-	tpl.Log("ignoreLast: %v", ignoreLast)
 	output = tpl.DecompressBytes(output, ignoreLast)
 	// print out final received data
 	fmt.Printf("%s", output)
@@ -90,15 +89,12 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 	var flag uint8 = 2
 	if packet.Flags == 1 || packet.Flags == 5 {
 		finalPacketId = int(packet.Seq)
-		tpl.Log("set final packet ID: %v", finalPacketId)
-		tpl.Log("got packet flag: %v", packet.Flags)
 		if packet.Flags == 5 {
 			ignoreLast = true
 		}
 	}
 
 	if haveAllPackets(finalPacketId) {
-		tpl.Log("recv final data packet")
 		done = true
 		flag = 3
 	}
@@ -109,10 +105,6 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 		Flags: flag,
 		Data:  data,
 	}
-
-	tpl.Log("flag: %v", flag)
-
-	tpl.Log("acket flag: %v", acket.Flags)
 
 	buf := tpl.WriteBytes(acket)
 	tpl.Log("[send ack], %v %v", acket.Seq, acket.Flags)
