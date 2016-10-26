@@ -10,6 +10,105 @@ import (
 	"time"
 )
 
+func CompressBytes(data []byte) (compressed []byte) {
+	halfFull := false
+	var word byte
+	for i := 0; i < len(data)-len(data)/60; i++ {
+		switch data[i+i/60] {
+		case byte('0'):
+			word |= 0
+		case byte('1'):
+			word |= 1
+		case byte('2'):
+			word |= 2
+		case byte('3'):
+			word |= 3
+		case byte('4'):
+			word |= 4
+		case byte('5'):
+			word |= 5
+		case byte('6'):
+			word |= 6
+		case byte('7'):
+			word |= 7
+		case byte('8'):
+			word |= 8
+		case byte('9'):
+			word |= 9
+		case byte('a'):
+			word |= 10
+		case byte('b'):
+			word |= 11
+		case byte('c'):
+			word |= 12
+		case byte('d'):
+			word |= 13
+		case byte('e'):
+			word |= 14
+		case byte('f'):
+			word |= 15
+		default:
+			break
+		}
+		if halfFull {
+			compressed = append(compressed, word)
+		}
+		halfFull = !halfFull
+		word = word << 4
+	}
+	return
+}
+
+func DecompressBytes(data []byte) (decompressed []byte) {
+	for i := 0; i < len(data); i++ {
+		decompressed = append(decompressed, decompressHalfWord(data[i]>>4))
+
+		decompressed = append(decompressed, decompressHalfWord(data[i]&15))
+		if (i+1)%30 == 0 && i != 0 {
+			decompressed = append(decompressed, byte('\n'))
+		}
+	}
+	return
+}
+
+func decompressHalfWord(halfWord byte) byte {
+	switch halfWord {
+	case 0:
+		return byte('0')
+	case 1:
+		return byte('1')
+	case 2:
+		return byte('2')
+	case 3:
+		return byte('3')
+	case 4:
+		return byte('4')
+	case 5:
+		return byte('5')
+	case 6:
+		return byte('6')
+	case 7:
+		return byte('7')
+	case 8:
+		return byte('8')
+	case 9:
+		return byte('9')
+	case 10:
+		return byte('a')
+	case 11:
+		return byte('b')
+	case 12:
+		return byte('c')
+	case 13:
+		return byte('d')
+	case 14:
+		return byte('e')
+	case 15:
+		return byte('f')
+	}
+	return byte('z')
+}
+
 func WriteBytes(packet Packet) (buff bytes.Buffer) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, packet.Seq)

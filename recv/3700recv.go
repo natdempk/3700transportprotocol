@@ -26,9 +26,11 @@ func main() {
 		handleConnection(packet, retAddr)
 	}
 
+	var output []byte
 	for i := 0; i < len(dataChunks); i++ {
-		fmt.Printf("%s", dataChunks[uint32(i)])
+		output = append(output, dataChunks[uint32(i)]...)
 	}
+	fmt.Printf("%s", output)
 
 	// Wait up to 4 seconds to recieve a final ackDone
 	var ackDone bool = false

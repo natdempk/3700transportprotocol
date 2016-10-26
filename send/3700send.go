@@ -62,6 +62,7 @@ func main() {
 	defer conn.Close()
 
 	data, _ := ioutil.ReadAll(os.Stdin)
+	data = tpl.CompressBytes(data)
 
 	retries = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
 	unsent = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
