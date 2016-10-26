@@ -31,12 +31,13 @@ func main() {
 	for i := 0; i < len(dataChunks); i++ {
 		output = append(output, dataChunks[uint32(i)]...)
 	}
-	tpl.Log("%v", ignoreLast)
+	tpl.Log("ignoreLast: %v", ignoreLast)
 	output = tpl.DecompressBytes(output, ignoreLast)
+	// print out final received data
 	fmt.Printf("%s", output)
 
 	// Wait up to 4 seconds to recieve a final ackDone
-	var ackDone bool = false
+	var ackDone = false
 	var startWaitingFinalAck = time.Now()
 	for !ackDone {
 		if time.Since(startWaitingFinalAck).Seconds() > 2 {
@@ -83,17 +84,19 @@ func getStatus(seq uint32) string {
 }
 
 func handleConnection(packet tpl.Packet, retAddr net.Addr) {
-	dataChunks[packet.Seq] = packet.Data
-
 	tpl.Log("[recv data] %v (%v) %v", packet.Seq*tpl.PACKET_SIZE, len(packet.Data), getStatus(packet.Seq))
+
+	dataChunks[packet.Seq] = packet.Data
 	var flag uint8 = 2
 	if packet.Flags == 1 || packet.Flags == 5 {
 		finalPacketId = int(packet.Seq)
+		tpl.Log("set final packet ID: %v", finalPacketId)
+		tpl.Log("got packet flag: %v", packet.Flags)
 		if packet.Flags == 5 {
 			ignoreLast = true
 		}
-
 	}
+
 	if haveAllPackets(finalPacketId) {
 		tpl.Log("recv final data packet")
 		done = true
@@ -107,6 +110,11 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 		Data:  data,
 	}
 
+	tpl.Log("flag: %v", flag)
+
+	tpl.Log("acket flag: %v", acket.Flags)
+
 	buf := tpl.WriteBytes(acket)
+	tpl.Log("[send ack], %v %v", acket.Seq, acket.Flags)
 	conn.WriteTo(buf.Bytes(), retAddr)
 }

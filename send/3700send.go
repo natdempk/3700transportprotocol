@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"io/ioutil"
 	"math"
 	"net"
@@ -18,14 +19,14 @@ var unsent chan uint32
 var conn net.Conn
 
 var initRtt = 1 * time.Second
-var rtt time.Duration = initRtt
+var rtt = initRtt
 
 // Used to manage a final timeout and signal total failure
 var recvOrSentPacket = time.Now()
 
 var c = 0.4
 var binv float64 = 2
-var cwndMax int = 15
+var cwndMax = 15
 
 var lastWindowRed = time.Now()
 
@@ -109,7 +110,11 @@ func main() {
 
 func updateAcks() {
 	for !done {
-		packet := tpl.ReadPacketC(conn)
+		packet, err := tpl.ReadPacketC(conn)
+		if err != nil && err != io.EOF { // other side tore down connection, we're done
+			done = true
+			break
+		}
 		recvOrSentPacket = time.Now()
 		if val, ok := inflight[packet.Seq]; ok {
 
@@ -119,10 +124,13 @@ func updateAcks() {
 			} else {
 				rtt = time.Duration(alpha*float64(rtt.Nanoseconds()) + (1-alpha)*float64(time.Since(val).Nanoseconds()))
 			}
+
 			deleteInflight(packet.Seq)
 		}
-		tpl.Log("[recv ack] %v", packet.Seq*tpl.PACKET_SIZE)
+		//tpl.Log("[recv ack] %v", packet.Seq*tpl.PACKET_SIZE)
+		tpl.Log("[recv ack] %v %v", packet.Seq*tpl.PACKET_SIZE, packet.Flags)
 		done = done || packet.Flags == 3
+		tpl.Log("done: %v", done)
 	}
 	tpl.Log("done with acks")
 }

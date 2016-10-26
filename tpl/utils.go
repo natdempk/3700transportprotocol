@@ -120,6 +120,7 @@ func decompressHalfWord(halfWord byte) byte {
 func WriteBytes(packet Packet) (buff bytes.Buffer) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, packet.Seq)
+	Log("writing flag %v", packet.Flags)
 	binary.Write(buf, binary.LittleEndian, packet.Flags)
 
 	for i := 0; i < len(packet.Data); i++ {
@@ -131,8 +132,15 @@ func WriteBytes(packet Packet) (buff bytes.Buffer) {
 
 func ReadBytes(buff *bytes.Reader) (packet Packet) {
 	packet = Packet{}
-	binary.Read(buff, binary.LittleEndian, &packet.Seq)
-	binary.Read(buff, binary.LittleEndian, &packet.Flags)
+	err := binary.Read(buff, binary.LittleEndian, &packet.Seq)
+	if err != nil {
+		Log("horrible error: %v", err)
+	}
+	err = binary.Read(buff, binary.LittleEndian, &packet.Flags)
+	if err != nil {
+		Log("horrible error: %v", err)
+	}
+	Log("read seq: %v flags: %v", packet.Seq, packet.Flags)
 
 	var data []byte
 	for {
@@ -147,9 +155,14 @@ func ReadBytes(buff *bytes.Reader) (packet Packet) {
 
 }
 
-func ReadPacketC(conn net.Conn) (packet Packet) {
+func ReadPacketC(conn net.Conn) (packet Packet, err error) {
 	buf := make([]byte, PACKET_SIZE+100)
-	size, _ := conn.Read(buf)
+	size, err := conn.Read(buf)
+	if err != nil && err != io.EOF { // other side has already torn down the connection
+		Log("v bad error: %v", err)
+		return packet, err
+	}
+	Log("readsize: %v", size)
 
 	bufReader := bytes.NewReader(buf[:size])
 	packet = ReadBytes(bufReader)
