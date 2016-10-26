@@ -13,8 +13,8 @@ import (
 func CompressBytes(data []byte) (compressed []byte) {
 	halfFull := false
 	var word byte
-	for i := 0; i < len(data)-len(data)/60; i++ {
-		switch data[i+i/60] {
+	for i := 0; i < len(data); i++ {
+		switch data[i] {
 		case byte('0'):
 			word |= 0
 		case byte('1'):
@@ -47,10 +47,12 @@ func CompressBytes(data []byte) (compressed []byte) {
 			word |= 14
 		case byte('f'):
 			word |= 15
+		case byte('\n'):
+			continue
 		default:
-			break
+			panic("okay")
 		}
-		if halfFull {
+		if halfFull || i+1 == len(data) {
 			compressed = append(compressed, word)
 		}
 		halfFull = !halfFull
@@ -59,7 +61,7 @@ func CompressBytes(data []byte) (compressed []byte) {
 	return
 }
 
-func DecompressBytes(data []byte) (decompressed []byte) {
+func DecompressBytes(data []byte, ignoreLastHalf bool) (decompressed []byte) {
 	for i := 0; i < len(data); i++ {
 		decompressed = append(decompressed, decompressHalfWord(data[i]>>4))
 
@@ -67,6 +69,9 @@ func DecompressBytes(data []byte) (decompressed []byte) {
 		if (i+1)%30 == 0 && i != 0 {
 			decompressed = append(decompressed, byte('\n'))
 		}
+	}
+	if ignoreLastHalf {
+		decompressed = decompressed[:len(decompressed)-1]
 	}
 	return
 }

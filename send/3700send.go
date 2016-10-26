@@ -55,6 +55,8 @@ func deleteInflight(i uint32) {
 	return
 }
 
+var ignoreLast bool
+
 func main() {
 	hostPort := os.Args[1]
 
@@ -62,6 +64,7 @@ func main() {
 	defer conn.Close()
 
 	data, _ := ioutil.ReadAll(os.Stdin)
+	ignoreLast = len(data)%61%2 == 0
 	data = tpl.CompressBytes(data)
 
 	retries = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
@@ -145,7 +148,11 @@ func sendData(data uint32) {
 	recvOrSentPacket = time.Now()
 	var flags uint8 = 0
 	if data == uint32(len(dataChunks)-1) {
-		flags = 1 // Last data Packet
+		if ignoreLast {
+			flags = 5
+		} else {
+			flags = 1 // Last data Packet
+		}
 	}
 	packet := tpl.Packet{
 		Seq:   data,

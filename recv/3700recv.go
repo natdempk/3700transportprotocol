@@ -13,6 +13,7 @@ var dataChunks = make(map[uint32][]byte)
 var done = false
 var finalPacketId = -1
 var conn net.PacketConn
+var ignoreLast = false
 
 func main() {
 	conn, _ = net.ListenUDP("udp", nil)
@@ -30,6 +31,7 @@ func main() {
 	for i := 0; i < len(dataChunks); i++ {
 		output = append(output, dataChunks[uint32(i)]...)
 	}
+	tpl.DecompressBytes(output, ignoreLast)
 	fmt.Printf("%s", output)
 
 	// Wait up to 4 seconds to recieve a final ackDone
@@ -84,8 +86,12 @@ func handleConnection(packet tpl.Packet, retAddr net.Addr) {
 
 	tpl.Log("[recv data] %v (%v) %v", packet.Seq*tpl.PACKET_SIZE, len(packet.Data), getStatus(packet.Seq))
 	var flag uint8 = 2
-	if packet.Flags == 1 {
+	if packet.Flags == 1 || packet.Flags == 5 {
 		finalPacketId = int(packet.Seq)
+		if packet.Flags == 5 {
+			ignoreLast = true
+		}
+
 	}
 	if haveAllPackets(finalPacketId) {
 		tpl.Log("recv final data packet")
