@@ -64,8 +64,8 @@ func main() {
 	defer conn.Close()
 
 	data, _ := ioutil.ReadAll(os.Stdin)
-	ignoreLast = len(data)%61%2 == 0
-	data = tpl.CompressBytes(data)
+	data, ignoreLast = tpl.CompressBytes(data)
+	tpl.Log("%v", ignoreLast)
 
 	retries = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)
 	unsent = make(chan uint32, (len(data)/tpl.PACKET_SIZE)+1)

@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-func CompressBytes(data []byte) (compressed []byte) {
-	halfFull := false
+func CompressBytes(data []byte) (compressed []byte, halfFull bool) {
+	halfFull = false
 	var word byte
 	for i := 0; i < len(data); i++ {
 		switch data[i] {
@@ -52,11 +52,14 @@ func CompressBytes(data []byte) (compressed []byte) {
 		default:
 			panic("okay")
 		}
-		if halfFull || i+1 == len(data) {
+		if halfFull {
 			compressed = append(compressed, word)
 		}
 		halfFull = !halfFull
 		word = word << 4
+	}
+	if halfFull {
+		compressed = append(compressed, word)
 	}
 	return
 }

@@ -31,7 +31,8 @@ func main() {
 	for i := 0; i < len(dataChunks); i++ {
 		output = append(output, dataChunks[uint32(i)]...)
 	}
-	tpl.DecompressBytes(output, ignoreLast)
+	tpl.Log("%v", ignoreLast)
+	output = tpl.DecompressBytes(output, ignoreLast)
 	fmt.Printf("%s", output)
 
 	// Wait up to 4 seconds to recieve a final ackDone
