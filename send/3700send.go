@@ -56,6 +56,18 @@ func deleteInflight(i uint32) {
 	return
 }
 
+func getMinPendingAck() (seq uint32) {
+	inflightMutex.Lock()
+	seq = math.MaxUint32
+
+	for i, _ := range inflight {
+		seq = uint32(tpl.Min(int(seq), int(i)))
+	}
+
+	inflightMutex.Unlock()
+	return
+}
+
 var ignoreLast bool
 
 func main() {
@@ -109,6 +121,9 @@ func main() {
 }
 
 func updateAcks() {
+	// keep track of min pending Ack
+	var minPendingAck uint32 = math.MaxUint32
+
 	for !done {
 		packet, err := tpl.ReadPacketC(conn)
 		if err != nil && err != io.EOF { // other side tore down connection, we're done
@@ -116,9 +131,18 @@ func updateAcks() {
 			break
 		}
 		recvOrSentPacket = time.Now()
-		if val, ok := inflight[packet.Seq]; ok {
 
+		curMinPendingAck := getMinPendingAck()
+		if minPendingAck != math.MaxUint32 && minPendingAck == curMinPendingAck {
+			// we have seen two acks without the min pending ack changing, so fast retransmit
+			retries <- curMinPendingAck
+		}
+
+		minPendingAck = curMinPendingAck
+
+		if val, ok := inflight[packet.Seq]; ok {
 			alpha := 0.875
+
 			if rtt == initRtt {
 				rtt = time.Since(val)
 			} else {
