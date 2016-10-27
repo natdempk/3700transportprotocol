@@ -18,7 +18,7 @@ var retries chan uint32
 var unsent chan uint32
 var conn net.Conn
 
-var initRtt = 1 * time.Second
+var initRtt = 100 * time.Millisecond
 var rtt = initRtt
 
 // Used to manage a final timeout and signal total failure

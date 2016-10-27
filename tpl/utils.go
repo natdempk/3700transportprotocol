@@ -131,8 +131,8 @@ func WriteBytes(packet Packet) (buff bytes.Buffer) {
 
 func ReadBytes(buff *bytes.Reader) (packet Packet) {
 	packet = Packet{}
-	err := binary.Read(buff, binary.LittleEndian, &packet.Seq)
-	err = binary.Read(buff, binary.LittleEndian, &packet.Flags)
+	binary.Read(buff, binary.LittleEndian, &packet.Seq)
+	binary.Read(buff, binary.LittleEndian, &packet.Flags)
 
 	var data []byte
 	for {
